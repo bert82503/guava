@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 
 /**
+ * 缓存接口的骨架实现，以最大限度地减少实现该接口所需的工作量。
  * This class provides a skeletal implementation of the {@code Cache} interface to minimize the
  * effort required to implement this interface.
  *
@@ -47,6 +48,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
   /** @since 11.0 */
   @Override
   public V get(K key, Callable<? extends V> valueLoader) throws ExecutionException {
+    // valueLoader-值加载器
     throw new UnsupportedOperationException();
   }
 
@@ -82,6 +84,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
   /** @since 11.0 */
   @Override
   public void put(K key, V value) {
+    // 显示插入
     throw new UnsupportedOperationException();
   }
 
@@ -89,12 +92,15 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
   @Override
   public void putAll(Map<? extends K, ? extends V> m) {
     for (Entry<? extends K, ? extends V> entry : m.entrySet()) {
+      // 迭代遍历地显示插入
       put(entry.getKey(), entry.getValue());
     }
   }
 
   @Override
-  public void cleanUp() {}
+  public void cleanUp() {
+    // 空的清空操作
+  }
 
   @Override
   public long size() {
@@ -103,6 +109,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
 
   @Override
   public void invalidate(Object key) {
+    // 使条目失效
     throw new UnsupportedOperationException();
   }
 
@@ -111,6 +118,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
   // For discussion of <? extends Object>, see getAllPresent.
   public void invalidateAll(Iterable<? extends Object> keys) {
     for (Object key : keys) {
+      // 迭代遍历地使条目失效
       invalidate(key);
     }
   }
@@ -122,6 +130,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
 
   @Override
   public CacheStats stats() {
+    // 缓存性能的统计信息
     throw new UnsupportedOperationException();
   }
 
@@ -131,6 +140,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
   }
 
   /**
+   * 缓存性能的统计计数器，在缓存操作期间累积的统计信息
    * Accumulates statistics during the operation of a {@link Cache} for presentation by {@link
    * Cache#stats}. This is solely intended for consumption by {@code Cache} implementors.
    *
@@ -138,6 +148,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
    */
   public interface StatsCounter {
     /**
+     * 记录缓存命中
      * Records cache hits. This should be called when a cache request returns a cached value.
      *
      * @param count the number of hits to record
@@ -146,6 +157,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
     void recordHits(int count);
 
     /**
+     * 记录缓存未命中
      * Records cache misses. This should be called when a cache request returns a value that was not
      * found in the cache. This method should be called by the loading thread, as well as by threads
      * blocking on the load. Multiple concurrent calls to {@link Cache} lookup methods with the same
@@ -159,6 +171,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
     void recordMisses(int count);
 
     /**
+     * 记录新条目的成功加载
      * Records the successful load of a new entry. This should be called when a cache request causes
      * an entry to be loaded, and the loading completes successfully. In contrast to {@link
      * #recordMisses}, this method should only be called by the loading thread.
@@ -170,6 +183,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
     void recordLoadSuccess(long loadTime);
 
     /**
+     * 记录新条目的失败加载
      * Records the failed load of a new entry. This should be called when a cache request causes an
      * entry to be loaded, but an exception is thrown while loading the entry. In contrast to {@link
      * #recordMisses}, this method should only be called by the loading thread.
@@ -181,6 +195,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
     void recordLoadException(long loadTime);
 
     /**
+     * 记录从缓存中逐出条目的情况
      * Records the eviction of an entry from the cache. This should only been called when an entry
      * is evicted due to the cache's eviction strategy, and not as a result of manual {@linkplain
      * Cache#invalidate invalidations}.
@@ -188,6 +203,7 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
     void recordEviction();
 
     /**
+     * 返回此计数器值的快照
      * Returns a snapshot of this counter's values. Note that this may be an inconsistent view, as
      * it may be interleaved with update operations.
      */
@@ -196,6 +212,8 @@ public abstract class AbstractCache<K, V> implements Cache<K, V> {
 
   /**
    * A thread-safe {@link StatsCounter} implementation for use by {@link Cache} implementors.
+   * 缓存性能的统计计数器实现
+   * 线程安全
    *
    * @since 10.0
    */

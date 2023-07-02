@@ -74,7 +74,7 @@ public final class CacheStats {
    */
   private final long loadSuccessCount;
   /**
-   * 数据加载异常计数器
+   * 数据加载失败计数器
    */
   private final long loadExceptionCount;
 

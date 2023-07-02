@@ -92,9 +92,11 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * The concurrent hash map implementation built by {@link CacheBuilder}.
+ * 本地缓存，由{@link CacheBuilder}构建的并发哈希映射实现。
  *
  * <p>This implementation is heavily derived from revision 1.96 of <a
  * href="http://tinyurl.com/ConcurrentHashMap">ConcurrentHashMap.java</a>.
+ * 此实现主要源自ConcurrentHashMap.java的1.96版本。
  *
  * @author Charles Fry
  * @author Bob Lee ({@code com.google.common.collect.MapMaker})
@@ -112,10 +114,13 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
    * The basic strategy is to subdivide the table among Segments, each of which itself is a
    * concurrently readable hash table. The map supports non-blocking reads and concurrent writes
    * across different segments.
+   * 基本策略是在分段之间细分表，每个分段本身就是一个可并发读取的哈希表。
+   * 映射支持跨不同段的非阻塞读取和并发写入。
    *
    * If a maximum size is specified, a best-effort bounding is performed per segment, using a
    * page-replacement algorithm to determine which entries to evict when the capacity has been
    * exceeded.
+   * 如果指定了最大大小，则会使用页面替换算法来确定在超出容量时要驱逐哪些条目，从而对每个段执行尽力而为的绑定。
    *
    * The page replacement algorithm's data structures are kept casually consistent with the map. The
    * ordering of writes to a segment is sequentially consistent. An update to the map and recording
@@ -123,120 +128,175 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
    * are guarded by a lock and operations are applied in batches to avoid lock contention. The
    * penalty of applying the batches is spread across threads so that the amortized cost is slightly
    * higher than performing just the operation without enforcing the capacity constraint.
+   * 页面替换算法的数据结构与映射表保持随意一致。写入段的顺序是顺序一致的。
+   * 对映射表的更新和读取的记录可能不会立即反映在算法的数据结构上。
+   * 这些结构由锁保护，并且操作是批量应用的，以避免锁争用。
+   * 应用批处理的惩罚分布在线程之间，因此摊余成本略高于仅执行操作而不强制执行容量限制。
    *
    * This implementation uses a per-segment queue to record a memento of the additions, removals,
    * and accesses that were performed on the map. The queue is drained on writes and when it exceeds
    * its capacity threshold.
+   * 此实现使用每段队列来记录在映射上执行的添加、删除和访问的纪念品。
+   * 队列在写入时以及超过其容量阈值时会耗尽。
    *
    * The Least Recently Used page replacement algorithm was chosen due to its simplicity, high hit
    * rate, and ability to be implemented with O(1) time complexity. The initial LRU implementation
    * operates per-segment rather than globally for increased implementation simplicity. We expect
    * the cache hit rate to be similar to that of a global LRU algorithm.
+   * 选择最近最少使用的页面替换算法是因为它简单、命中率高，并且能够以O(1)时间复杂度实现。
+   * 最初的LRU实现按分段而不是全局运行，以提高实现的简单性。
+   * 我们期望缓存命中率类似于全局LRU算法的缓存命中率。
    */
 
-  // Constants
+  // Constants-常量池
 
   /**
+   * 最大容量
    * The maximum capacity, used if a higher value is implicitly specified by either of the
    * constructors with arguments. MUST be a power of two {@code <= 1<<30} to ensure that entries are
    * indexable using ints.
    */
   static final int MAXIMUM_CAPACITY = 1 << 30;
 
-  /** The maximum number of segments to allow; used to bound constructor arguments. */
+  /**
+   * 允许的最大段数
+   * The maximum number of segments to allow; used to bound constructor arguments. */
   static final int MAX_SEGMENTS = 1 << 16; // slightly conservative
 
-  /** Number of (unsynchronized) retries in the containsValue method. */
+  /**
+   * 是否包含这个值方法中的（未同步的）重试次数
+   * Number of (unsynchronized) retries in the containsValue method. */
   static final int CONTAINS_VALUE_RETRIES = 3;
 
   /**
    * Number of cache access operations that can be buffered per segment before the cache's recency
    * ordering information is updated. This is used to avoid lock contention by recording a memento
    * of reads and delaying a lock acquisition until the threshold is crossed or a mutation occurs.
+   * 在更新缓存的最近性排序信息之前，每个段可以缓冲的缓存访问操作数。
+   * 这是为了避免锁争用，通过记录读取的记忆并延迟锁获取，直到超过阈值或发生突变。
    *
    * <p>This must be a (2^n)-1 as it is used as a mask.
+   * 这必须是一个(2^n)-1，因为它被用作掩码。
    */
   static final int DRAIN_THRESHOLD = 0x3F;
 
   /**
    * Maximum number of entries to be drained in a single cleanup run. This applies independently to
    * the cleanup queue and both reference queues.
+   * 单个清理运行中要排出的最大条目数。
+   * 这独立于清理队列和两个引用队列。
    */
   // TODO(fry): empirically optimize this
   static final int DRAIN_MAX = 16;
 
-  // Fields
+  // Fields-字段
 
   static final Logger logger = Logger.getLogger(LocalCache.class.getName());
 
   /**
    * Mask value for indexing into segments. The upper bits of a key's hash code are used to choose
    * the segment.
+   * 用于索引分段的掩码值。键的哈希值的高位用于选择段。
    */
   final int segmentMask;
 
   /**
    * Shift value for indexing within segments. Helps prevent entries that end up in the same segment
    * from also ending up in the same bucket.
+   * 用于在段内建立索引的移位值。
+   * 有助于防止最终出现在同一段中的条目也出现在相同的存储桶中。
    */
   final int segmentShift;
 
-  /** The segments, each of which is a specialized hash table. */
+  /**
+   * 段数组，每个段都是一个专门的哈希表。
+   * The segments, each of which is a specialized hash table. */
   final Segment<K, V>[] segments;
 
-  /** The concurrency level. */
+  /**
+   * 并发级别
+   * The concurrency level. */
   final int concurrencyLevel;
 
-  /** Strategy for comparing keys. */
+  /**
+   * 比较键的策略
+   * Strategy for comparing keys. */
   final Equivalence<Object> keyEquivalence;
 
-  /** Strategy for comparing values. */
+  /**
+   * 比较值的策略
+   * Strategy for comparing values. */
   final Equivalence<Object> valueEquivalence;
 
-  /** Strategy for referencing keys. */
+  /**
+   * 引用键的策略
+   * Strategy for referencing keys. */
   final Strength keyStrength;
 
-  /** Strategy for referencing values. */
+  /**
+   * 引用值的策略
+   * Strategy for referencing values. */
   final Strength valueStrength;
 
-  /** The maximum weight of this map. UNSET_INT if there is no maximum. */
+  /**
+   * 这个散列表的最大重量
+   * The maximum weight of this map. UNSET_INT if there is no maximum. */
   final long maxWeight;
 
-  /** Weigher to weigh cache entries. */
+  /**
+   * 称重缓存条目
+   * Weigher to weigh cache entries. */
   final Weigher<K, V> weigher;
 
-  /** How long after the last access to an entry the map will retain that entry. */
+  /**
+   * 上次访问条目后，映射表将保留该条目多长时间。
+   * How long after the last access to an entry the map will retain that entry. */
   final long expireAfterAccessNanos;
 
-  /** How long after the last write to an entry the map will retain that entry. */
+  /**
+   * 上次写入条目后，映射表将保留该条目多长时间。
+   * How long after the last write to an entry the map will retain that entry. */
   final long expireAfterWriteNanos;
 
-  /** How long after the last write an entry becomes a candidate for refresh. */
+  /**
+   * 在最后一次写入后，一个条目成为刷新候选项的时间。
+   * How long after the last write an entry becomes a candidate for refresh. */
   final long refreshNanos;
 
-  /** Entries waiting to be consumed by the removal listener. */
+  /**
+   * 正在等待移除监视器使用的条目。
+   * Entries waiting to be consumed by the removal listener. */
   // TODO(fry): define a new type which creates event objects and automates the clear logic
   final Queue<RemovalNotification<K, V>> removalNotificationQueue;
 
   /**
    * A listener that is invoked when an entry is removed due to expiration or garbage collection of
    * soft/weak entries.
+   * 当由于软/弱条目的过期或垃圾收集而删除条目时调用的监视器。
    */
   final RemovalListener<K, V> removalListener;
 
-  /** Measures time in a testable way. */
+  /**
+   * 以可测试的方式测量时间
+   * Measures time in a testable way. */
   final Ticker ticker;
 
-  /** Factory used to create new entries. */
+  /**
+   * 用于创建新条目的工厂
+   * Factory used to create new entries. */
   final EntryFactory entryFactory;
 
   /**
    * Accumulates global cache statistics. Note that there are also per-segments stats counters which
    * must be aggregated to obtain a global stats view.
+   * 累积全局缓存统计信息。
+   * 请注意，还有每个分段的统计计数器，必须对其进行聚合才能获得全局统计视图。
    */
   final StatsCounter globalStatsCounter;
 
-  /** The default cache loader to use on loading operations. */
+  /**
+   * 加载操作中使用的默认缓存加载器
+   * The default cache loader to use on loading operations. */
   @CheckForNull final CacheLoader<? super K, V> defaultLoader;
 
   /**
@@ -379,6 +439,9 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     return valueStrength != Strength.STRONG;
   }
 
+  /**
+   * 值引用
+   */
   enum Strength {
     /*
      * TODO(kevinb): If we strongly reference the value and aren't loading, we needn't wrap the
@@ -442,7 +505,9 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     abstract Equivalence<Object> defaultEquivalence();
   }
 
-  /** Creates new entries. */
+  /**
+   * 创建新条目
+   * Creates new entries. */
   enum EntryFactory {
     STRONG {
       @Override
@@ -570,12 +635,15 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     };
 
     // Masks used to compute indices in the following table.
+    // 下表中用于计算索引的掩码
 
     static final int ACCESS_MASK = 1;
     static final int WRITE_MASK = 2;
     static final int WEAK_MASK = 4;
 
-    /** Look-up table for factories. */
+    /**
+     * 查找工厂的表格
+     * Look-up table for factories. */
     static final EntryFactory[] factories = {
       STRONG,
       STRONG_ACCESS,
@@ -596,8 +664,11 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
       return factories[flags];
     }
 
+    // 引用条目
+
     /**
      * Creates a new entry.
+     * 创建一个新条目
      *
      * @param segment to create the entry for
      * @param key of the entry
@@ -607,8 +678,11 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     abstract <K, V> ReferenceEntry<K, V> newEntry(
         Segment<K, V> segment, K key, int hash, @CheckForNull ReferenceEntry<K, V> next);
 
+    // 复制条目
+
     /**
      * Copies an entry, assigning it a new {@code next} entry.
+     * 复制一个条目，并为其指定新的下一个条目。
      *
      * @param original the entry to copy. But avoid calling {@code getKey} on it: Instead, use the
      *     {@code key} parameter. That way, we prevent the key from being garbage collected in the
@@ -621,15 +695,17 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     // Guarded By Segment.this
     <K, V> ReferenceEntry<K, V> copyEntry(
         Segment<K, V> segment, ReferenceEntry<K, V> original, ReferenceEntry<K, V> newNext, K key) {
-      return newEntry(segment, key, original.getHash(), newNext);
+      return this.newEntry(segment, key, original.getHash(), newNext);
     }
 
     // Guarded By Segment.this
     <K, V> void copyAccessEntry(ReferenceEntry<K, V> original, ReferenceEntry<K, V> newEntry) {
       // TODO(fry): when we link values instead of entries this method can go
       // away, as can connectAccessOrder, nullifyAccessOrder.
+      // 访问时间
       newEntry.setAccessTime(original.getAccessTime());
 
+      // 访问顺序
       connectAccessOrder(original.getPreviousInAccessQueue(), newEntry);
       connectAccessOrder(newEntry, original.getNextInAccessQueue());
 
@@ -640,8 +716,10 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     <K, V> void copyWriteEntry(ReferenceEntry<K, V> original, ReferenceEntry<K, V> newEntry) {
       // TODO(fry): when we link values instead of entries this method can go
       // away, as can connectWriteOrder, nullifyWriteOrder.
+      // 写入时间
       newEntry.setWriteTime(original.getWriteTime());
 
+      // 写入顺序
       connectWriteOrder(original.getPreviousInWriteQueue(), newEntry);
       connectWriteOrder(newEntry, original.getNextInWriteQueue());
 
@@ -649,7 +727,9 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     }
   }
 
-  /** A reference to a value. */
+  /**
+   * 对一个值的引用
+   * A reference to a value. */
   interface ValueReference<K, V> {
     /** Returns the value. Does not block or throw exceptions. */
     @CheckForNull
@@ -685,6 +765,7 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     /**
      * Notify pending loads that a new value was set. This is only relevant to loading value
      * references.
+     * 通知挂起的加载已设置新值。
      */
     void notifyNewValue(@CheckForNull V newValue);
 
@@ -929,6 +1010,9 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     return (ReferenceEntry<K, V>) NullEntry.INSTANCE;
   }
 
+  /**
+   * 丢弃队列
+   */
   static final Queue<?> DISCARDING_QUEUE =
       new AbstractQueue<Object>() {
         @Override
@@ -973,8 +1057,13 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
    * respective superclasses.
    */
 
+  // 引用条目
+
   /** Used for strongly-referenced keys. */
   static class StrongEntry<K, V> extends AbstractReferenceEntry<K, V> {
+    /**
+     * 键
+     */
     final K key;
 
     StrongEntry(K key, int hash, @CheckForNull ReferenceEntry<K, V> next) {
@@ -990,8 +1079,17 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
 
     // The code below is exactly the same for each entry type.
 
+    /**
+     * 散列码
+     */
     final int hash;
+    /**
+     * 下一个引用条目
+     */
     @CheckForNull final ReferenceEntry<K, V> next;
+    /**
+     * 值引用
+     */
     volatile ValueReference<K, V> valueReference = unset();
 
     @Override
@@ -1022,6 +1120,9 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
 
     // The code below is exactly the same for each access entry type.
 
+    /**
+     * 访问时间
+     */
     volatile long accessTime = Long.MAX_VALUE;
 
     @Override
@@ -1035,6 +1136,9 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     }
 
     // Guarded By Segment.this
+    /**
+     * 下一个访问条目
+     */
     @Weak ReferenceEntry<K, V> nextAccess = nullEntry();
 
     @Override
@@ -1048,6 +1152,9 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     }
 
     // Guarded By Segment.this
+    /**
+     * 前一个访问条目
+     */
     @Weak ReferenceEntry<K, V> previousAccess = nullEntry();
 
     @Override
@@ -1068,6 +1175,9 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
 
     // The code below is exactly the same for each write entry type.
 
+    /**
+     * 写入时间
+     */
     volatile long writeTime = Long.MAX_VALUE;
 
     @Override
@@ -1081,6 +1191,9 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     }
 
     // Guarded By Segment.this
+    /**
+     * 下一个写入条目
+     */
     @Weak ReferenceEntry<K, V> nextWrite = nullEntry();
 
     @Override
@@ -1094,6 +1207,9 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     }
 
     // Guarded By Segment.this
+    /**
+     * 前一个写入条目
+     */
     @Weak ReferenceEntry<K, V> previousWrite = nullEntry();
 
     @Override
@@ -1277,8 +1393,17 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
 
     // The code below is exactly the same for each entry type.
 
+    /**
+     * 条目的散列码
+     */
     final int hash;
+    /**
+     * 下一个引用条目
+     */
     @CheckForNull final ReferenceEntry<K, V> next;
+    /**
+     * 值引用
+     */
     volatile ValueReference<K, V> valueReference = unset();
 
     @Override
@@ -1483,8 +1608,13 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     }
   }
 
+  // 值引用
+
   /** References a weak value. */
   static class WeakValueReference<K, V> extends WeakReference<V> implements ValueReference<K, V> {
+    /**
+     * 引用条目
+     */
     final ReferenceEntry<K, V> entry;
 
     WeakValueReference(ReferenceQueue<V> queue, V referent, ReferenceEntry<K, V> entry) {
@@ -1621,6 +1751,9 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
 
   /** References a weak value. */
   static final class WeightedWeakValueReference<K, V> extends WeakValueReference<K, V> {
+    /**
+     * 值的权重
+     */
     final int weight;
 
     WeightedWeakValueReference(
@@ -1677,6 +1810,8 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
       return weight;
     }
   }
+
+  // 重新散列
 
   /**
    * Applies a supplemental hash function to a given hash code, which defends against poor quality
@@ -1758,8 +1893,11 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     return segmentFor(entry.getHash()).getLiveValue(entry, now) != null;
   }
 
+  // 散列段
+
   /**
    * Returns the segment that should be used for a key with the given hash.
+   * 返回应该用于具有给定哈希的键的段。
    *
    * @param hash the hash code for the key
    * @return the segment
@@ -1779,6 +1917,7 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
    * loading, or expired. Unlike {@link Segment#getLiveValue} this method does not attempt to clean
    * up stale entries. As such it should only be called outside a segment context, such as during
    * iteration.
+   * 从条目中获取值。
    */
   @CheckForNull
   V getLiveValue(ReferenceEntry<K, V> entry, long now) {
@@ -1796,7 +1935,7 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     return value;
   }
 
-  // expiration
+  // expiration-过期
 
   /** Returns true if the entry has expired. */
   boolean isExpired(ReferenceEntry<K, V> entry, long now) {
@@ -1810,10 +1949,11 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     return false;
   }
 
-  // queues
+  // queues-双端队列
 
   // Guarded By Segment.this
   static <K, V> void connectAccessOrder(ReferenceEntry<K, V> previous, ReferenceEntry<K, V> next) {
+    // 前后驱节点
     previous.setNextInAccessQueue(next);
     next.setPreviousInAccessQueue(previous);
   }
@@ -1845,6 +1985,7 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
    */
   void processPendingNotifications() {
     RemovalNotification<K, V> notification;
+    // 条目移除通知队列
     while ((notification = removalNotificationQueue.poll()) != null) {
       try {
         removalListener.onRemoval(notification);
@@ -1855,15 +1996,18 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
   }
 
   @SuppressWarnings("unchecked")
-  final Segment<K, V>[] newSegmentArray(int ssize) {
-    return new Segment[ssize];
+  final Segment<K, V>[] newSegmentArray(int segmentSize) {
+    // 新的段的数组
+    return new Segment[segmentSize];
   }
 
-  // Inner Classes
+  // Inner Classes-内部类
 
   /**
    * Segments are specialized versions of hash tables. This subclass inherits from ReentrantLock
    * opportunistically, just to simplify some locking and avoid separate construction.
+   * 分段是哈希表的专用版本。
+   * 这个子类机会主义地继承了ReentrantLock，只是为了简化一些锁定并避免单独的构造。
    */
   @SuppressWarnings("serial") // This class is never serialized.
   static class Segment<K, V> extends ReentrantLock {
@@ -1901,6 +2045,9 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
      * comments.
      */
 
+    /**
+     * 本地缓存映射表
+     */
     @Weak final LocalCache<K, V> map;
 
     /** The number of live elements in this segment's region. */
@@ -1924,7 +2071,9 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
      */
     int threshold;
 
-    /** The per-segment table. */
+    /**
+     * 每段表格
+     * The per-segment table. */
     @CheckForNull volatile AtomicReferenceArray<ReferenceEntry<K, V>> table;
 
     /** The maximum weight of this segment. UNSET_INT if there is no maximum. */
@@ -1958,6 +2107,7 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     /**
      * A queue of elements currently in the map, ordered by write time. Elements are added to the
      * tail of the queue on write.
+     * 写入双端队列
      */
     @GuardedBy("this")
     final Queue<ReferenceEntry<K, V>> writeQueue;
@@ -1965,6 +2115,7 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     /**
      * A queue of elements currently in the map, ordered by access time. Elements are added to the
      * tail of the queue on access (note that writes count as accesses).
+     * 访问双端队列
      */
     @GuardedBy("this")
     final Queue<ReferenceEntry<K, V>> accessQueue;
@@ -3506,6 +3657,9 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
   }
 
   static class LoadingValueReference<K, V> implements ValueReference<K, V> {
+    /**
+     * 旧值
+     */
     volatile ValueReference<K, V> oldValue;
 
     // TODO(fry): rename get, then extend AbstractFuture instead of containing SettableFuture
@@ -3568,9 +3722,11 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
         stopwatch.start();
         V previousValue = oldValue.get();
         if (previousValue == null) {
+          // 同步加载新值
           V newValue = loader.load(key);
           return set(newValue) ? futureValue : Futures.immediateFuture(newValue);
         }
+        // 重新加载新值
         ListenableFuture<V> newValue = loader.reload(key, previousValue);
         if (newValue == null) {
           return Futures.immediateFuture(null);
@@ -3653,7 +3809,7 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     }
   }
 
-  // Queues
+  // Queues-双端队列
 
   /**
    * A custom queue for managing eviction order. Note that this is tightly integrated with {@code
@@ -3667,6 +3823,9 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
    * current model.
    */
   static final class WriteQueue<K, V> extends AbstractQueue<ReferenceEntry<K, V>> {
+    /**
+     * 头结点
+     */
     final ReferenceEntry<K, V> head =
         new AbstractReferenceEntry<K, V>() {
 
@@ -3941,7 +4100,7 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     }
   }
 
-  // Cache support
+  // Cache support-缓存支持
 
   public void cleanUp() {
     for (Segment<?, ?> segment : segments) {
@@ -3949,7 +4108,7 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     }
   }
 
-  // ConcurrentMap methods
+  // ConcurrentMap methods-并发映射表方法列表
 
   @Override
   public boolean isEmpty() {
@@ -3995,6 +4154,8 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     return Ints.saturatedCast(longSize());
   }
 
+  // 检索操作
+
   @CanIgnoreReturnValue // TODO(b/27479612): consider removing this
   @Override
   @CheckForNull
@@ -4027,12 +4188,12 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
   @Override
   @CheckForNull
   public V getOrDefault(@CheckForNull Object key, @CheckForNull V defaultValue) {
-    V result = get(key);
+    V result = this.get(key);
     return (result != null) ? result : defaultValue;
   }
 
   V getOrLoad(K key) throws ExecutionException {
-    return get(key, defaultLoader);
+    return this.get(key, defaultLoader);
   }
 
   ImmutableMap<K, V> getAllPresent(Iterable<?> keys) {
@@ -4064,7 +4225,7 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     Map<K, V> result = Maps.newLinkedHashMap();
     Set<K> keysToLoad = Sets.newLinkedHashSet();
     for (K key : keys) {
-      V value = get(key);
+      V value = this.get(key);
       if (!result.containsKey(key)) {
         result.put(key, value);
         if (value == null) {
@@ -4079,7 +4240,7 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     try {
       if (!keysToLoad.isEmpty()) {
         try {
-          Map<K, V> newEntries = loadAll(unmodifiableSet(keysToLoad), defaultLoader);
+          Map<K, V> newEntries = this.loadAll(unmodifiableSet(keysToLoad), defaultLoader);
           for (K key : keysToLoad) {
             V value = newEntries.get(key);
             if (value == null) {
@@ -4377,7 +4538,7 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     return (es != null) ? es : (entrySet = new EntrySet());
   }
 
-  // Iterator Support
+  // Iterator Support-迭代器支持
 
   abstract class HashIterator<T> implements Iterator<T> {
 
@@ -4721,7 +4882,7 @@ class LocalCache<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> 
     }
   }
 
-  // Serialization Support
+  // Serialization Support-序列化支持
 
   /**
    * Serializes the configuration of a LocalCache, reconstituting it as a Cache using CacheBuilder

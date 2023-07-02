@@ -313,7 +313,7 @@ public final class CacheBuilder<K, V> {
    */
   int initialCapacity = UNSET_INT;
   /**
-   * 并发等级
+   * 并发级别
    */
   int concurrencyLevel = UNSET_INT;
   /**

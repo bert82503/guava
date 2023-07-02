@@ -20,6 +20,7 @@ import javax.annotation.CheckForNull;
 
 /**
  * An entry in a reference map.
+ * 引用映射表中的一个条目。
  *
  * <p>Entries in the map can be in the following states:
  *
@@ -48,7 +49,9 @@ interface ReferenceEntry<K, V> {
   /** Sets the value reference for this entry. */
   void setValueReference(ValueReference<K, V> valueReference);
 
-  /** Returns the next entry in the chain. */
+  /**
+   * 返回链中的下一个条目
+   * Returns the next entry in the chain. */
   @CheckForNull
   ReferenceEntry<K, V> getNext();
 
@@ -58,6 +61,9 @@ interface ReferenceEntry<K, V> {
   /** Returns the key for this entry. */
   @CheckForNull
   K getKey();
+
+  // 访问
+  // 访问时间
 
   /*
    * Used by entries that use access order. Access entries are maintained in a doubly-linked list.
@@ -73,6 +79,8 @@ interface ReferenceEntry<K, V> {
   @SuppressWarnings("GoodTime") // b/122668874
   void setAccessTime(long time);
 
+  // 访问双端队列
+
   /** Returns the next entry in the access queue. */
   ReferenceEntry<K, V> getNextInAccessQueue();
 
@@ -84,6 +92,9 @@ interface ReferenceEntry<K, V> {
 
   /** Sets the previous entry in the access queue. */
   void setPreviousInAccessQueue(ReferenceEntry<K, V> previous);
+
+  // 写入
+  // 写入时间
 
   /*
    * Implemented by entries that use write order. Write entries are maintained in a doubly-linked
@@ -98,6 +109,8 @@ interface ReferenceEntry<K, V> {
   /** Sets the entry write time in ns. */
   @SuppressWarnings("GoodTime") // b/122668874
   void setWriteTime(long time);
+
+  // 写入双端队列
 
   /** Returns the next entry in the write queue. */
   ReferenceEntry<K, V> getNextInWriteQueue();

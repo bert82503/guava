@@ -26,6 +26,7 @@ import java.util.concurrent.ExecutionException;
 /**
  * This class provides a skeletal implementation of the {@code Cache} interface to minimize the
  * effort required to implement this interface.
+ * 此类提供了Cache接口的骨架实现，以最大限度地减少实现该接口所需的工作量。
  *
  * <p>To implement a cache, the programmer needs only to extend this class and provide an
  * implementation for the {@link #get(Object)} and {@link #getIfPresent} methods. {@link
@@ -46,12 +47,16 @@ public abstract class AbstractLoadingCache<K, V> extends AbstractCache<K, V>
   /** Constructor for use by subclasses. */
   protected AbstractLoadingCache() {}
 
+  // get，检索操作
+
   @CanIgnoreReturnValue // TODO(b/27479612): consider removing this?
   @Override
   public V getUnchecked(K key) {
     try {
+      // 检索键
       return get(key);
     } catch (ExecutionException e) {
+      // 捕获异常，转换为不受检的运行时异常
       throw new UncheckedExecutionException(e.getCause());
     }
   }
@@ -61,6 +66,7 @@ public abstract class AbstractLoadingCache<K, V> extends AbstractCache<K, V>
     Map<K, V> result = Maps.newLinkedHashMap();
     for (K key : keys) {
       if (!result.containsKey(key)) {
+        // 检索键
         result.put(key, get(key));
       }
     }
@@ -71,6 +77,8 @@ public abstract class AbstractLoadingCache<K, V> extends AbstractCache<K, V>
   public final V apply(K key) {
     return getUnchecked(key);
   }
+
+  // 刷新操作
 
   @Override
   public void refresh(K key) {

@@ -43,6 +43,7 @@ import javax.annotation.CheckForNull;
 
 /**
  * A builder of {@link LoadingCache} and {@link Cache} instances.
+ * LoadingCache和Cache实例的生成器。
  *
  * <h2>Prefer <a href="https://github.com/ben-manes/caffeine/wiki">Caffeine</a> over Guava's caching
  * API</h2>
@@ -85,16 +86,24 @@ import javax.annotation.CheckForNull;
  * <h2>More on {@code CacheBuilder}</h2>
  *
  * {@code CacheBuilder} builds caches with any combination of the following features:
+ * CacheBuilder使用以下功能的任意组合构建缓存：
  *
  * <ul>
  *   <li>automatic loading of entries into the cache
+ *   将条目自动加载到缓存中
  *   <li>least-recently-used eviction when a maximum size is exceeded (note that the cache is
  *       divided into segments, each of which does LRU internally)
+ *   当超过最大大小时，最近最少使用的驱逐策略（请注意，缓存被划分为多个段，每个段在内部执行LRU）
  *   <li>time-based expiration of entries, measured since last access or last write
+ *   自上次访问或上次写入以来测量的条目的基于时间的过期时间
  *   <li>keys automatically wrapped in {@code WeakReference}
+ *   键自动包装在弱引用中
  *   <li>values automatically wrapped in {@code WeakReference} or {@code SoftReference}
+ *   值自动包装在弱引用或软引用中
  *   <li>notification of evicted (or otherwise removed) entries
+ *   驱逐（或以其他方式删除）条目的通知
  *   <li>accumulation of cache access statistics
+ *   缓存访问统计信息的累积
  * </ul>
  *
  * <p>These features are all optional; caches can be created using all or none of them. By default,
@@ -192,6 +201,7 @@ import javax.annotation.CheckForNull;
 @GwtCompatible(emulated = true)
 @ElementTypesAreNonnullByDefault
 public final class CacheBuilder<K, V> {
+  // 默认值配置项
   private static final int DEFAULT_INITIAL_CAPACITY = 16;
   private static final int DEFAULT_CONCURRENCY_LEVEL = 4;
 
@@ -201,6 +211,9 @@ public final class CacheBuilder<K, V> {
   @SuppressWarnings("GoodTime") // should be a java.time.Duration
   private static final int DEFAULT_REFRESH_NANOS = 0;
 
+  /**
+   * 空的缓存性能的统计计数器
+   */
   static final Supplier<? extends StatsCounter> NULL_STATS_COUNTER =
       Suppliers.ofInstance(
           new StatsCounter() {
@@ -226,6 +239,9 @@ public final class CacheBuilder<K, V> {
               return EMPTY_STATS;
             }
           });
+  /**
+   * 空的缓存性能的统计信息
+   */
   static final CacheStats EMPTY_STATS = new CacheStats(0, 0, 0, 0, 0, 0);
 
   /*
@@ -239,6 +255,9 @@ public final class CacheBuilder<K, V> {
    * - lambda: Outside Google, we got a report of a similar problem in
    *   https://github.com/google/guava/issues/6565
    */
+  /**
+   * 缓存性能的统计计数器的提供者
+   */
   @SuppressWarnings("AnonymousToLambda")
   static final Supplier<StatsCounter> CACHE_STATS_COUNTER =
       new Supplier<StatsCounter>() {
@@ -248,13 +267,21 @@ public final class CacheBuilder<K, V> {
         }
       };
 
+  /**
+   * 空的移除监视器
+   */
   enum NullListener implements RemovalListener<Object, Object> {
     INSTANCE;
 
     @Override
-    public void onRemoval(RemovalNotification<Object, Object> notification) {}
+    public void onRemoval(RemovalNotification<Object, Object> notification) {
+      // empty
+    }
   }
 
+  /**
+   * 所有条目-缓存项权重为1的权重器
+   */
   enum OneWeigher implements Weigher<Object, Object> {
     INSTANCE;
 
@@ -281,30 +308,72 @@ public final class CacheBuilder<K, V> {
 
   boolean strictParsing = true;
 
+  /**
+   * 初始容量
+   */
   int initialCapacity = UNSET_INT;
+  /**
+   * 并发等级
+   */
   int concurrencyLevel = UNSET_INT;
+  /**
+   * 缓存项条目数的最大大小
+   */
   long maximumSize = UNSET_INT;
+  /**
+   * 最大权重
+   */
   long maximumWeight = UNSET_INT;
+  /**
+   * 计算缓存项的权重
+   */
   @CheckForNull Weigher<? super K, ? super V> weigher;
 
+  /**
+   * 键的引用
+   */
   @CheckForNull Strength keyStrength;
+  /**
+   * 值的引用
+   */
   @CheckForNull Strength valueStrength;
 
+  /**
+   * 写入操作后过期
+   */
   @SuppressWarnings("GoodTime") // should be a java.time.Duration
   long expireAfterWriteNanos = UNSET_INT;
 
+  /**
+   * 访问操作后过期
+   */
   @SuppressWarnings("GoodTime") // should be a java.time.Duration
   long expireAfterAccessNanos = UNSET_INT;
 
+  /**
+   * 刷新机制
+   */
   @SuppressWarnings("GoodTime") // should be a java.time.Duration
   long refreshNanos = UNSET_INT;
 
+  /**
+   * 键相等
+   */
   @CheckForNull Equivalence<Object> keyEquivalence;
+  /**
+   * 值相等
+   */
   @CheckForNull Equivalence<Object> valueEquivalence;
 
+  /**
+   * 移除监视器
+   */
   @CheckForNull RemovalListener<? super K, ? super V> removalListener;
   @CheckForNull Ticker ticker;
 
+  /**
+   * 缓存性能的统计计数器的提供者
+   */
   Supplier<? extends StatsCounter> statsCounterSupplier = NULL_STATS_COUNTER;
 
   private CacheBuilder() {}
@@ -312,6 +381,7 @@ public final class CacheBuilder<K, V> {
   /**
    * Constructs a new {@code CacheBuilder} instance with default settings, including strong keys,
    * strong values, and no automatic eviction of any kind.
+   * 使用默认设置构建一个新的CacheBuilder实例，包括强键、强值，并且没有任何类型的自动逐出。
    *
    * <p>Note that while this return type is {@code CacheBuilder<Object, Object>}, type parameters on
    * the {@link #build} methods allow you to create a cache of any key and value type desired.
@@ -319,6 +389,8 @@ public final class CacheBuilder<K, V> {
   public static CacheBuilder<Object, Object> newBuilder() {
     return new CacheBuilder<>();
   }
+
+  // 从规范构建实例
 
   /**
    * Constructs a new {@code CacheBuilder} instance with the settings specified in {@code spec}.
@@ -354,8 +426,11 @@ public final class CacheBuilder<K, V> {
     return this;
   }
 
+  // 自定义等价策略
+
   /**
    * Sets a custom {@code Equivalence} strategy for comparing keys.
+   * 设置用于比较键的自定义等价策略。
    *
    * <p>By default, the cache uses {@link Equivalence#identity} to determine key equality when
    * {@link #weakKeys} is specified, and {@link Equivalence#equals()} otherwise.
@@ -376,6 +451,7 @@ public final class CacheBuilder<K, V> {
 
   /**
    * Sets a custom {@code Equivalence} strategy for comparing values.
+   * 设置用于比较值的自定义等价策略。
    *
    * <p>By default, the cache uses {@link Equivalence#identity} to determine value equality when
    * {@link #weakValues} or {@link #softValues} is specified, and {@link Equivalence#equals()}
@@ -397,6 +473,7 @@ public final class CacheBuilder<K, V> {
   }
 
   /**
+   * 设置内部哈希表的最小总大小。
    * Sets the minimum total size for the internal hash tables. For example, if the initial capacity
    * is {@code 60}, and the concurrency level is {@code 8}, then eight segments are created, each
    * having a hash table of size eight. Providing a large enough estimate at construction time
@@ -423,6 +500,7 @@ public final class CacheBuilder<K, V> {
   }
 
   /**
+   * 指导更新操作之间允许的并发性。
    * Guides the allowed concurrency among update operations. Used as a hint for internal sizing. The
    * table is internally partitioned to try to permit the indicated number of concurrent updates
    * without contention. Because assignment of entries to these partitions is not necessarily
@@ -468,8 +546,11 @@ public final class CacheBuilder<K, V> {
     return (concurrencyLevel == UNSET_INT) ? DEFAULT_CONCURRENCY_LEVEL : concurrencyLevel;
   }
 
+  // 驱逐机制
+
   /**
    * Specifies the maximum number of entries the cache may contain.
+   * 指定缓存可能包含的最大条目数。
    *
    * <p>Note that the cache <b>may evict an entry before this limit is exceeded</b>. For example, in
    * the current implementation, when {@code concurrencyLevel} is greater than {@code 1}, each
@@ -504,6 +585,7 @@ public final class CacheBuilder<K, V> {
   }
 
   /**
+   * 指定缓存中可能包含的项的最大权重。
    * Specifies the maximum weight of entries the cache may contain. Weight is determined using the
    * {@link Weigher} specified with {@link #weigher}, and use of this method requires a
    * corresponding call to {@link #weigher} prior to calling {@link #build}.
@@ -605,6 +687,8 @@ public final class CacheBuilder<K, V> {
     return (Weigher<K1, V1>) MoreObjects.firstNonNull(weigher, OneWeigher.INSTANCE);
   }
 
+  // 键-值引用
+
   /**
    * Specifies that each key (not value) stored in the cache should be wrapped in a {@link
    * WeakReference} (by default, strong references are used).
@@ -697,6 +781,8 @@ public final class CacheBuilder<K, V> {
   Strength getValueStrength() {
     return MoreObjects.firstNonNull(valueStrength, Strength.STRONG);
   }
+
+  // 过期机制
 
   /**
    * Specifies that each entry should be automatically removed from the cache once a fixed duration
@@ -844,6 +930,8 @@ public final class CacheBuilder<K, V> {
         : expireAfterAccessNanos;
   }
 
+  // 刷新机制
+
   /**
    * Specifies that active entries are eligible for automatic refresh once a fixed duration has
    * elapsed after the entry's creation, or the most recent replacement of its value. The semantics
@@ -928,6 +1016,7 @@ public final class CacheBuilder<K, V> {
   /**
    * Specifies a nanosecond-precision time source for this cache. By default, {@link
    * System#nanoTime} is used.
+   * 指定此缓存的纳秒精度时间源。
    *
    * <p>The primary intent of this method is to facilitate testing of caches with a fake or mock
    * time source.
@@ -948,6 +1037,8 @@ public final class CacheBuilder<K, V> {
     }
     return recordsTime ? Ticker.systemTicker() : NULL_TICKER;
   }
+
+  // 移除监视器
 
   /**
    * Specifies a listener instance that caches should notify each time an entry is removed for any
@@ -988,6 +1079,8 @@ public final class CacheBuilder<K, V> {
         MoreObjects.firstNonNull(removalListener, NullListener.INSTANCE);
   }
 
+  // 缓存性能的统计信息
+
   /**
    * Enable the accumulation of {@link CacheStats} during the operation of the cache. Without this
    * {@link Cache#stats} will return zero for all statistics. Note that recording stats requires
@@ -1011,6 +1104,8 @@ public final class CacheBuilder<K, V> {
     return statsCounterSupplier;
   }
 
+  // 构建缓存实例
+
   /**
    * Builds a cache, which either returns an already-loaded value for a given key or atomically
    * computes or retrieves it using the supplied {@code CacheLoader}. If another thread is currently
@@ -1021,6 +1116,7 @@ public final class CacheBuilder<K, V> {
    * invoked again to create multiple independent caches.
    *
    * @param loader the cache loader used to obtain new values
+   *               用于获取新值的缓存加载器
    * @return a cache having the requested features
    */
   public <K1 extends K, V1 extends V> LoadingCache<K1, V1> build(

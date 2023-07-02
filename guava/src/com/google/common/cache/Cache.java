@@ -29,12 +29,15 @@ import javax.annotation.CheckForNull;
 
 /**
  * 缓存，从键到值的半持久映射。
+ * 缓存条目是使用{@link #get(Object, Callable)}或{@link #put(Object, Object)}手动添加的，并存储在缓存中，直到被逐出或手动无效。
+ * 生成实例的常见方法是使用{@link CacheBuilder}。
  * A semi-persistent mapping from keys to values. Cache entries are manually added using {@link
  * #get(Object, Callable)} or {@link #put(Object, Object)}, and are stored in the cache until either
  * evicted or manually invalidated. The common way to build instances is using {@link CacheBuilder}.
  *
  * <p>Implementations of this interface are expected to be thread-safe, and can be safely accessed
  * by multiple concurrent threads.
+ * 该接口的实现应该是线程安全的，并且可以由多个并发线程安全地访问。
  *
  * @param <K> the type of the cache's keys, which are not permitted to be null
  * @param <V> the type of the cache's values, which are not permitted to be null

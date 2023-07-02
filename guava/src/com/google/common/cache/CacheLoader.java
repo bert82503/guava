@@ -29,9 +29,12 @@ import java.util.concurrent.Executor;
 
 /**
  * Computes or retrieves values, based on a key, for use in populating a {@link LoadingCache}.
+ * 缓存加载器，基于键计算或检索值，以用于填充{@link LoadingCache}。
  *
  * <p>Most implementations will only need to implement {@link #load}. Other methods may be
  * overridden as desired.
+ * 大多数实现只需要实现{@link #load}。
+ * 根据需要，可以覆盖其他方法。
  *
  * <p>Usage example:
  *
@@ -60,8 +63,11 @@ public abstract class CacheLoader<K, V> {
   /** Constructor for use by subclasses. */
   protected CacheLoader() {}
 
+  // 检索值
+
   /**
    * Computes or retrieves the value corresponding to {@code key}.
+   * 计算或检索与键对应的值。
    *
    * @param key the non-null key whose value should be loaded
    * @return the value associated with {@code key}; <b>must not be null</b>
@@ -76,12 +82,17 @@ public abstract class CacheLoader<K, V> {
    * Computes or retrieves a replacement value corresponding to an already-cached {@code key}. This
    * method is called when an existing cache entry is refreshed by {@link
    * CacheBuilder#refreshAfterWrite}, or through a call to {@link LoadingCache#refresh}.
+   * 计算或检索与已缓存的键相对应的替换值。
+   * 当{@link CacheBuilder#refreshAfterWrite}或通过调用{@link LoadingCache#refresh}刷新现有缓存项时，会调用此方法。
    *
    * <p>This implementation synchronously delegates to {@link #load}. It is recommended that it be
    * overridden with an asynchronous implementation when using {@link
    * CacheBuilder#refreshAfterWrite}.
+   * 此实现同步委托{@link #load}。
+   * 建议在使用{@link CacheBuilder#refreshAfterWrite}时使用异步实现重写它。
    *
    * <p><b>Note:</b> <i>all exceptions thrown by this method will be logged and then swallowed</i>.
+   * 注意：此方法引发的所有异常都将被记录，然后被吞噬。
    *
    * @param key the non-null key whose value should be loaded
    * @param oldValue the non-null old value corresponding to {@code key}
@@ -97,12 +108,15 @@ public abstract class CacheLoader<K, V> {
   public ListenableFuture<V> reload(K key, V oldValue) throws Exception {
     checkNotNull(key);
     checkNotNull(oldValue);
-    return Futures.immediateFuture(load(key));
+    // 同步委托加载
+    return Futures.immediateFuture(this.load(key));
   }
 
   /**
    * Computes or retrieves the values corresponding to {@code keys}. This method is called by {@link
    * LoadingCache#getAll}.
+   * 计算或检索与键对应的值。
+   * 此方法由{@link LoadingCache#getAll}调用。
    *
    * <p>If the returned map doesn't contain all requested {@code keys} then the entries it does
    * contain will be cached, but {@code getAll} will throw an exception. If the returned map
@@ -172,16 +186,20 @@ public abstract class CacheLoader<K, V> {
     private static final long serialVersionUID = 0;
   }
 
+  // 异步重新加载
+
   /**
    * Returns a {@code CacheLoader} which wraps {@code loader}, executing calls to {@link
    * CacheLoader#reload} using {@code executor}.
+   * 返回一个封装加载器的CacheLoader，使用executor执行{@link CacheLoader#reload}调用。
    *
    * <p>This method is useful only when {@code loader.reload} has a synchronous implementation, such
    * as {@linkplain #reload the default implementation}.
+   * 只有当loader.reload具有同步实现（例如默认实现）时，此方法才有用。
    *
    * @since 17.0
    */
-  @GwtIncompatible // Executor + Futures
+  @GwtIncompatible // Executor + Futures，执行器和异步计算任务
   public static <K, V> CacheLoader<K, V> asyncReloading(
       final CacheLoader<K, V> loader, final Executor executor) {
     checkNotNull(loader);
@@ -189,11 +207,13 @@ public abstract class CacheLoader<K, V> {
     return new CacheLoader<K, V>() {
       @Override
       public V load(K key) throws Exception {
+        // 同步加载
         return loader.load(key);
       }
 
       @Override
       public ListenableFuture<V> reload(final K key, final V oldValue) {
+        // 异步重新加载任务
         ListenableFutureTask<V> task =
             ListenableFutureTask.create(() -> loader.reload(key, oldValue).get());
         executor.execute(task);
@@ -202,6 +222,7 @@ public abstract class CacheLoader<K, V> {
 
       @Override
       public Map<K, V> loadAll(Iterable<? extends K> keys) throws Exception {
+        // 同步加载
         return loader.loadAll(keys);
       }
     };

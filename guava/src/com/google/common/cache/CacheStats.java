@@ -25,6 +25,8 @@ import java.util.concurrent.Callable;
 import javax.annotation.CheckForNull;
 
 /**
+ * 有关缓存性能的统计信息。
+ * 此类的实例是不可变的。
  * Statistics about the performance of a {@link Cache}. Instances of this class are immutable.
  *
  * <p>Cache statistics are incremented according to the following rules:
@@ -59,14 +61,32 @@ import javax.annotation.CheckForNull;
 @GwtCompatible
 @ElementTypesAreNonnullByDefault
 public final class CacheStats {
+  /**
+   * 缓存命中计数器
+   */
   private final long hitCount;
+  /**
+   * 缓存未命中计数器
+   */
   private final long missCount;
+  /**
+   * 数据加载成功计数器
+   */
   private final long loadSuccessCount;
+  /**
+   * 数据加载异常计数器
+   */
   private final long loadExceptionCount;
 
+  /**
+   * 累积的总的数据加载耗时
+   */
   @SuppressWarnings("GoodTime") // should be a java.time.Duration
   private final long totalLoadTime;
 
+  /**
+   * 条目被驱逐的计数器
+   */
   private final long evictionCount;
 
   /**
@@ -116,6 +136,7 @@ public final class CacheStats {
   }
 
   /**
+   * 缓存命中比率
    * Returns the ratio of cache requests which were hits. This is defined as {@code hitCount /
    * requestCount}, or {@code 1.0} when {@code requestCount == 0}. Note that {@code hitRate +
    * missRate =~ 1.0}.
@@ -215,6 +236,7 @@ public final class CacheStats {
   }
 
   /**
+   * 加载新值所花费的平均时间
    * Returns the average time spent loading new values. This is defined as {@code totalLoadTime /
    * (loadSuccessCount + loadExceptionCount)}.
    *
@@ -228,6 +250,7 @@ public final class CacheStats {
   }
 
   /**
+   * 缓存条目被逐出的次数
    * Returns the number of times an entry has been evicted. This count does not include manual
    * {@linkplain Cache#invalidate invalidations}.
    */

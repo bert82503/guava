@@ -163,7 +163,7 @@ public interface Cache<K, V> {
   /** Returns the approximate number of entries in this cache. */
   long size();
 
-  // 缓存统计信息
+  // 缓存性能的统计信息
 
   /**
    * Returns a current snapshot of this cache's cumulative statistics, or a set of default values if

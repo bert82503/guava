@@ -19,6 +19,7 @@ import javax.annotation.CheckForNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
+ * 类型转换函数
  * Legacy version of {@link java.util.function.Function java.util.function.Function}.
  *
  * <p>The {@link Functions} class provides common functions and related utilities.

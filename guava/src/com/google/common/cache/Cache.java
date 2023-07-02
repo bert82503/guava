@@ -28,6 +28,7 @@ import java.util.concurrent.ExecutionException;
 import javax.annotation.CheckForNull;
 
 /**
+ * 缓存，从键到值的半持久映射。
  * A semi-persistent mapping from keys to values. Cache entries are manually added using {@link
  * #get(Object, Callable)} or {@link #put(Object, Object)}, and are stored in the cache until either
  * evicted or manually invalidated. The common way to build instances is using {@link CacheBuilder}.
@@ -44,6 +45,8 @@ import javax.annotation.CheckForNull;
 @GwtCompatible
 @ElementTypesAreNonnullByDefault
 public interface Cache<K, V> {
+
+  // get，检索操作
 
   /**
    * Returns the value associated with {@code key} in this cache, or {@code null} if there is no
@@ -116,6 +119,8 @@ public interface Cache<K, V> {
    */
   ImmutableMap<K, V> getAllPresent(Iterable<? extends Object> keys);
 
+  // put，插入操作
+
   /**
    * Associates {@code value} with {@code key} in this cache. If the cache previously contained a
    * value associated with {@code key}, the old value is replaced by {@code value}.
@@ -137,6 +142,8 @@ public interface Cache<K, V> {
    */
   void putAll(Map<? extends K, ? extends V> m);
 
+  // Explicit Removals，显式清除操作
+
   /** Discards any cached value for key {@code key}. */
   void invalidate(@CompatibleWith("K") Object key);
 
@@ -151,8 +158,12 @@ public interface Cache<K, V> {
   /** Discards all entries in the cache. */
   void invalidateAll();
 
+  // 缓存中的大致条目数
+
   /** Returns the approximate number of entries in this cache. */
   long size();
+
+  // 缓存统计信息
 
   /**
    * Returns a current snapshot of this cache's cumulative statistics, or a set of default values if
@@ -167,6 +178,8 @@ public interface Cache<K, V> {
    */
   CacheStats stats();
 
+  // 并发映射表，视图转换
+
   /**
    * Returns a view of the entries stored in this cache as a thread-safe map. Modifications made to
    * the map directly affect the cache.
@@ -176,6 +189,9 @@ public interface Cache<K, V> {
    * created, it is undefined which of the changes (if any) will be reflected in that iterator.
    */
   ConcurrentMap<K, V> asMap();
+
+  // When Does Cleanup Happen?
+  // 何时进行清理？
 
   /**
    * Performs any pending maintenance operations needed by the cache. Exactly which activities are
